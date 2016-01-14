@@ -544,14 +544,27 @@ class Security extends Component
     }
 
     /**
-     * Generates a random string of specified length.
-     * The string generated matches [A-Za-z0-9_-]+ and is transparent to URL-encoding.
+     * Generates a random string of specified length optionally using a given alphabet.
+     *
+     * If no alphabet is given, the string generated matches [A-Za-z0-9_-]+ and is transparent
+     * to URL-encoding.
+     *
+     * If an alphabet is given then the returned string comprises characters randomly selected
+     * from the set of characters in the alphabet. If the alphabet is neither 7-bit ASCII nor
+     * UTF-8 (e.g. CP1252 or ISO-8859-1) then you must specify the alphabet's encoding as one of
+     * the [mbstring encodings](https://secure.php.net/manual/en/mbstring.supported-encodings.php).
+     *
+     * > NOTE: If a character appears more than once in the alphabet then it will appear
+     * proportionatly more frequently in the output.
      *
      * @param integer $length the length of the key in characters
-     * @return string the generated random key
+     * @param string $alphabet the characters that may appear in the putput
+     * @param string $encoding the character encoding of $alphabet and, if alphabet is given,
+     * of the oputput string.
+     * @return string the generated random string
      * @throws Exception on failure.
      */
-    public function generateRandomString($length = 32)
+    public function generateRandomString($length = 32, $alphabet = null, $encoding = 'UTF-8')
     {
         if (!is_int($length)) {
             throw new InvalidParamException('First parameter ($length) must be an integer');
@@ -561,10 +574,24 @@ class Security extends Component
             throw new InvalidParamException('First parameter ($length) must be greater than 0');
         }
 
-        $bytes = $this->generateRandomKey($length);
-        // '=' character(s) returned by base64_encode() are always discarded because
-        // they are guaranteed to be after position $length in the base64_encode() output.
-        return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
+        if (empty($alphabet)) {
+            $bytes = $this->generateRandomKey($length);
+            // '=' character(s) returned by base64_encode() are always discarded because
+            // they are guaranteed to be after position $length in the base64_encode() output.
+            return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
+        }
+
+        if (!mb_check_encoding($alphabet, $encoding)) {
+            throw new InvalidParamException('Character encoding error in second parameter ($alphabet)');
+        }
+
+        $maxInt = count($alphabet) - 1;
+        $string = '';
+        for ($i = 0; $i < $length; $i += 1) {
+            $string .= mb_substr($alphabet, $this->generateRandomInt(0, $maxInt), 1, $encoding);
+        }
+
+        return $string;
     }
 
     const RANDOM_INT_LOOP_LIMIT = 123;
