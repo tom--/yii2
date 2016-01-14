@@ -437,6 +437,8 @@ class Security extends Component
      * Note that output may not be ASCII.
      * @see generateRandomString() if you need a string.
      *
+     * Substitutes for the random_bytes() in PHP 7.
+     *
      * @param integer $length the number of bytes to generate
      * @return string the generated random bytes
      * @throws Exception on failure.
@@ -570,6 +572,8 @@ class Security extends Component
     /**
      * Returns a random integer in the range $min..$max inclusive.
      *
+     * Substitutes for the random_int() in PHP 7.
+     *
      * @param int $min Minimum value of the returned integer.
      * @param int $max Maximum value of the returned integer.
      * @return int The generated random integer.
@@ -578,6 +582,10 @@ class Security extends Component
      */
     public function generateRandomInt($min, $max)
     {
+        if (function_exists('random_int')) {
+            return random_int($min, $max);
+        }
+
         if (!is_int($min)) {
             throw new InvalidParamException('First parameter ($min) must be an integer');
         }
