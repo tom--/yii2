@@ -565,6 +565,80 @@ class Security extends Component
         return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
     }
 
+    const RANDOM_INT_LOOP_LIMIT = 123;
+
+    /**
+     * Returns a random integer in the range $min..$max inclusive.
+     *
+     * @param int $min Minimum value of the returned integer.
+     * @param int $max Maximum value of the returned integer.
+     * @return int The generated random integer.
+     * @throws InvalidParamException On parameter type or range error.
+     * @throws Exception If something goes wrong.
+     */
+    public function generateRandomInt($min, $max)
+    {
+        if (!is_int($min)) {
+            throw new InvalidParamException('First parameter ($min) must be an integer');
+        }
+
+        if (!is_int($max)) {
+            throw new InvalidParamException('Second parameter ($max) must be an integer');
+        }
+
+        if ($min > $max) {
+            throw new InvalidParamException('First parameter ($min) must be no greater than second parameter ($max)');
+        }
+
+        if ($min === $max) {
+            return $min;
+        }
+
+        // $range is a PHP float if the expression exceeds PHP_INT_MAX.
+        $range = $max - $min + 1;
+
+        if (is_float($range)) {
+            $mask = null;
+        } else {
+            // Make a bit mask of (the next highest power of 2 >= $range) minus one.
+            $mask = 1;
+            $shift = $range;
+            while ($shift > 1) {
+                $shift >>= 1;
+                $mask = ($mask << 1) | 1;
+            }
+        }
+
+        $tries = 0;
+        do {
+            $bytes = $this->generateRandomKey(PHP_INT_SIZE);
+
+            // Convert byte string to a signed int by shifting each byte in.
+            $value = 0;
+            for ($pos = 0; $pos < PHP_INT_SIZE; $pos += 1) {
+                $value = ($value << 8) | ord($bytes[$pos]);
+            }
+
+            if ($mask === null) {
+                // Use all bits in $bytes and check $value against $min and $max instead of $range.
+                if ($value >= $min && $value <= $max) {
+                    return $value;
+                }
+            } else {
+                // Use only enough bits from $bytes to cover the $range.
+                $value &= $mask;
+                if ($value < $range) {
+                    return $value + $min;
+                }
+            }
+
+            $tries += 1;
+        } while ($tries < self::RANDOM_INT_LOOP_LIMIT);
+
+        // Worst case: this is as likely as self::RANDOM_INT_LOOP_LIMIT heads in as many coin tosses.
+        throw new Exception('Unable to generate random int after ' . self::RANDOM_INT_LOOP_LIMIT . ' tries');
+    }
+
     /**
      * Generates a secure hash from a password and a random salt.
      *

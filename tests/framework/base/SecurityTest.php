@@ -840,6 +840,29 @@ TEXT;
         $this->assertEquals(1, preg_match('/[A-Za-z0-9_-]+/', $key));
     }
 
+    public function testGenerateRandomInt()
+    {
+        foreach ([1,2] as $round) {
+            $n = 1.0;
+            $min = 1;
+            $max = 1;
+            while ($max >= $min && $max <= PHP_INT_MAX && $min >= PHP_INT_MIN) {
+                for ($i = 0; $i < 99999; $i += 1) {
+                    $value = $this->security->generateRandomInt($min, $max);
+                    $this->assertInternalType('int', $value);
+                    $this->assertGreaterThanOrEqual($min, $value);
+                    $this->assertLessThanOrEqual($max, $value);
+                }
+
+                $n *= 1.0567;
+                $max = (int) $n;
+                if ($round === 2) {
+                    $min = -$max;
+                }
+            }
+        }
+    }
+
     public function dataProviderPbkdf2()
     {
         return [
