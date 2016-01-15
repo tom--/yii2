@@ -840,6 +840,15 @@ TEXT;
         $this->assertEquals(1, preg_match('/[A-Za-z0-9_-]+/', $key));
     }
 
+    public function testGenerateRandomUuid()
+    {
+        $pattern = '%^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$%i';
+        for ($i = 0; $i < 100; $i += 1) {
+            $uuid = $this->security->generateRandomUuid();
+            $this->assertEquals(1, preg_match($pattern, $uuid));
+        }
+    }
+
     public function dataProviderPbkdf2()
     {
         return [
