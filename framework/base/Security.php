@@ -565,19 +565,23 @@ class Security extends Component
         return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
     }
 
+    /**
+     * Generates a random UUID using the secure RNG.
+     *
+     * Returns Version 4 UUID format: xxxxxxxx-xxxx-4xxx-Yxxx-xxxxxxxxxxxx where x is
+     * any random hex digit and Y is a random choice from 8, 9, a, or b.
+     *
+     * @return string the UUID
+     * @throws Exception if it can't get a secure random number.
+     */
     public function generateRandomUuid()
     {
         $bytes = $this->generateRandomKey(16);
-
-        // Top 4 bits of the 7th byte hold version number 4.
-        $bytes[6] = ($bytes[6] & 0x0f) | 0x40;
-
-        // Top 2 bits of the 9th byte hold 0b01 for variant DCE1.1
-        $bytes[8] = ($bytes[8] & 0x3f) | 0x80;
-
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
         $id = str_split(bin2hex($bytes), 4);
 
-        return "{$id[0]}{$id[1]}-{$id[0]}-{$id[0]}-{$id[0]}-{$id[0]}{$id[0]}{$id[0]}";
+        return "{$id[0]}{$id[1]}-{$id[2]}-{$id[3]}-{$id[4]}-{$id[5]}{$id[6]}{$id[7]}";
     }
 
     /**
