@@ -565,6 +565,21 @@ class Security extends Component
         return strtr(substr(base64_encode($bytes), 0, $length), '+/', '_-');
     }
 
+    public function generateRandomUuid()
+    {
+        $bytes = $this->generateRandomKey(16);
+
+        // Top 4 bits of the 7th byte hold version number 4.
+        $bytes[6] = ($bytes[6] & 0x0f) | 0x40;
+
+        // Top 2 bits of the 9th byte hold 0b01 for variant DCE1.1
+        $bytes[8] = ($bytes[8] & 0x3f) | 0x80;
+
+        $id = str_split(bin2hex($bytes), 4);
+
+        return "{$id[0]}{$id[1]}-{$id[0]}-{$id[0]}-{$id[0]}-{$id[0]}{$id[0]}{$id[0]}";
+    }
+
     /**
      * Generates a secure hash from a password and a random salt.
      *
