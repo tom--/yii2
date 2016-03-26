@@ -423,6 +423,9 @@ class Security extends Component
         return false;
     }
 
+    private $_libreSSL;
+    private $_device;
+
     /**
      * Generates specified number of random bytes.
      * Note that output may not be ASCII.
@@ -449,16 +452,15 @@ class Security extends Component
         // The recent LibreSSL RNGs are faster and likely better than /dev/urandom.
         // Parse OPENSSL_VERSION_TEXT because OPENSSL_VERSION_NUMBER is no use for LibreSSL.
         // https://bugs.php.net/bug.php?id=71143
-        static $libreSSL;
-        if ($libreSSL === null) {
-            $libreSSL = defined('OPENSSL_VERSION_TEXT')
+        if ($this->_libreSSL === null) {
+            $this->_libreSSL = defined('OPENSSL_VERSION_TEXT')
                 && preg_match('{^LibreSSL (\d\d?)\.(\d\d?)\.(\d\d?)$}', OPENSSL_VERSION_TEXT, $matches)
                 && (10000 * $matches[1]) + (100 * $matches[2]) + $matches[3] >= 20105;
         }
 
         // Since 5.4.0, openssl_random_pseudo_bytes() reads from CryptGenRandom on Windows instead
         // of using OpenSSL library. Don't use OpenSSL on other platforms.
-        if ($libreSSL || (DIRECTORY_SEPARATOR === '\\' && PHP_VERSION_ID >= 50400)) {
+        if ($this->_libreSSL === true || (DIRECTORY_SEPARATOR === '\\' && PHP_VERSION_ID >= 50400)) {
             $key = openssl_random_pseudo_bytes($length, $cryptoStrong);
             if ($cryptoStrong === false) {
                 throw new Exception(
@@ -479,19 +481,22 @@ class Security extends Component
             }
         }
 
-        // If not on Windows, try a random device.
-        if (DIRECTORY_SEPARATOR === '/') {
+        // If not on Windows, see if there is a random device.
+        if ($this->_device === null && DIRECTORY_SEPARATOR === '/') {
             // urandom is a symlink to random on FreeBSD.
             $device = PHP_OS === 'FreeBSD' ? '/dev/random' : '/dev/urandom';
             // Check random device for speacial character device protection mode. Use lstat()
             // instead of stat() in case an attacker arranges a symlink to a fake device.
             $lstat = @lstat($device);
-            if ($lstat !== false && ($lstat['mode'] & 0170000) === 020000) {
-                $key = @file_get_contents($device, false, null, 0, $length);
-                if ($key !== false && StringHelper::byteLength($key) === $length) {
-                    return $key;
-                }
+            $this->_device = $lstat !== false && ($lstat['mode'] & 0170000) === 020000 ? $device : false;
+        }
+        if ($this->_device) {
+            $key = @file_get_contents($this->_device, false, null, 0, $length);
+            if ($key !== false && StringHelper::byteLength($key) === $length) {
+                return $key;
             }
+
+            $this->_device = null;
         }
 
         throw new Exception('Unable to generate a random key');
