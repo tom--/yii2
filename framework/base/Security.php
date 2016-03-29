@@ -424,6 +424,7 @@ class Security extends Component
     }
 
     private $_libreSSL;
+    private $_randomFile;
 
     /**
      * Generates specified number of random bytes.
@@ -479,25 +480,40 @@ class Security extends Component
         // mcrypt_create_iv() does not use libmcrypt. Since PHP 5.3.7 it directly reads
         // CrypGenRandom on Windows. Elsewhere it directly reads /dev/urandom.
         if (PHP_VERSION_ID >= 50307 && function_exists('mcrypt_create_iv')) {
-            $key = mcrypt_create_iv($length, MCRYPT_DEV_URANDOM);
+            $key = mcrypt_create_iv($length, PHP_OS === 'FreeBSD' ? MCRYPT_DEV_RANDOM : MCRYPT_DEV_URANDOM);
             if (StringHelper::byteLength($key) === $length) {
                 return $key;
             }
         }
 
-        // If not on Windows, try a random device.
-        if (DIRECTORY_SEPARATOR === '/') {
+        // If not on Windows, try to open a random device.
+        if ($this->_randomFile === null && DIRECTORY_SEPARATOR === '/') {
             // urandom is a symlink to random on FreeBSD.
             $device = PHP_OS === 'FreeBSD' ? '/dev/random' : '/dev/urandom';
             // Check random device for special character device protection mode. Use lstat()
             // instead of stat() in case an attacker arranges a symlink to a fake device.
             $lstat = @lstat($device);
             if ($lstat !== false && ($lstat['mode'] & 0170000) === 020000) {
-                $key = @file_get_contents($device, false, null, 0, $length);
-                if ($key !== false && StringHelper::byteLength($key) === $length) {
-                    return $key;
+                $this->_randomFile = fopen($device, 'r') ?: null;
+            }
+        }
+
+        if (is_resource($this->_randomFile)) {
+            $buffer = '';
+            $stillNeed = $length;
+            while ($stillNeed > 0) {
+                $someBytes = fread($this->_randomFile, $stillNeed);
+                if ($someBytes === false) {
+                    break;
+                }
+                $buffer .= $someBytes;
+                $stillNeed = $length - StringHelper::byteLength($buffer);
+                if ($stillNeed === 0) {
+                    return $buffer;
                 }
             }
+            fclose($this->_randomFile);
+            $this->_randomFile = null;
         }
 
         throw new Exception('Unable to generate a random key');
