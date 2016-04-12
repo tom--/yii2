@@ -814,14 +814,16 @@ TEXT;
     protected function randTime(Security $security, $count, $length, $message)
     {
         $t = microtime(true);
+        $gotBytes = 0;
         for ($i = 0; $i < $count; $i += 1) {
             $key = $security->generateRandomKey($length);
+            $gotBytes += mb_strlen($key, '8bit');
         }
         $t = microtime(true) - $t;
-        $nbytes = number_format($count * $length, 0);
+        $nbytes = number_format($gotBytes, 0);
         $milisec = number_format(1000 * ($t), 3);
         $rate = number_format($count * $length / $t / 1000000, 3);
-        fwrite(STDERR, "$message: $count x $length B = $nbytes B in $milisec ms => $rate MB/s\n");
+        fwrite(STDERR, "$message: $count x $length B reads. Got $nbytes B in $milisec ms => $rate MB/s\n");
     }
 
     public function testGenerateRandomKeySpeed()
@@ -844,7 +846,7 @@ TEXT;
             fwrite(STDERR, sprintf("%2d %s ==> %s\n", $i + 1, $test, var_export($result, true)));
         }
 
-        foreach ([16, 2000, 262144] as $block) {
+        foreach ([16, 2000, 262144, 10000000] as $block) {
             $security = new Security();
             foreach (range(1, 10) as $nth) {
                 $this->randTime($security, 1, $block, "Call $nth");
@@ -853,7 +855,7 @@ TEXT;
         }
 
         $security = new Security();
-        $this->randTime($security, 10000, 16, 'Rate test');
+        $this->randTime($security, 100000, 16, 'Rate test');
 
         $security = new Security();
         $this->randTime($security, 10000, 5000, 'Rate test');
