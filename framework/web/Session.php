@@ -82,6 +82,17 @@ class Session extends Component implements \IteratorAggregate, \ArrayAccess, \Co
      * @var \SessionHandlerInterface|array an object implementing the SessionHandlerInterface or a configuration array. If set, will be used to provide persistency instead of build-in methods.
      */
     public $handler;
+    /**
+     * @var string|callable The cryptograpic key used to encrypt/decrypt session data.
+     * By default, session encryption is disabled. Set $cryptoKey to a binary string
+     * or a callable that returns a binary string to enable session encryption. A
+     * callable should have sigrature
+     *
+     * ```
+     *     string function ($sessionID)
+     * ```
+     */
+    public $cryptoKey = false;
 
     /**
      * @var array parameter-value pairs to override default session cookie parameters that are used for session_set_cookie_params() function
@@ -148,14 +159,22 @@ class Session extends Component implements \IteratorAggregate, \ArrayAccess, \Co
      */
     protected function registerSessionHandler()
     {
-        if ($this->handler !== null) {
-            if (!is_object($this->handler)) {
-                $this->handler = Yii::createObject($this->handler);
+        if ($this->cryptoKey) {
+            if ($this->handler === null) {
+                if ($this->getUseCustomStorage()) {
+                    throw new InvalidConfigException('Custom session storage cannot use encryption');
+                }
+                $handler = new CryptoSessionHandler($this->cryptoKey);
+            } else {
+                if (!is_object($this->handler)) {
+                    $this->handler = Yii::createObject($this->handler);
+                }
+                if (!$this->handler instanceof \SessionHandlerInterface) {
+                    throw new InvalidConfigException('"' . get_class($this) . '::handler" must implement the SessionHandlerInterface.');
+                }
+                $handler = $this->cryptoKey ? new CryptoSessionHandler($this->cryptoKey, $this->handler) : $this->handler;
             }
-            if (!$this->handler instanceof \SessionHandlerInterface) {
-                throw new InvalidConfigException('"' . get_class($this) . '::handler" must implement the SessionHandlerInterface.');
-            }
-            YII_DEBUG ? session_set_save_handler($this->handler, false) : @session_set_save_handler($this->handler, false);
+            YII_DEBUG ? session_set_save_handler($handler, false) : @session_set_save_handler($handler, false);
         } elseif ($this->getUseCustomStorage()) {
             if (YII_DEBUG) {
                 session_set_save_handler(
