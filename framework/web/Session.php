@@ -86,7 +86,7 @@ class Session extends Component implements \IteratorAggregate, \ArrayAccess, \Co
      * @var string|callable The cryptograpic key used to encrypt/decrypt session data.
      * By default, session encryption is disabled. Set $cryptoKey to a binary string
      * or a callable that returns a binary string to enable session encryption. A
-     * callable should have sigrature
+     * callable should have signature
      *
      * ```
      *     string function ($sessionID)
