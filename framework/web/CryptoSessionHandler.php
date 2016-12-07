@@ -5,7 +5,8 @@ namespace yii\web;
 class CryptoSessionHandler extends \SessionHandler
 {
     /**
-     * @var string|callable
+     * @var string|callable The cryptograpic key as a binary string or function returning a binary string.
+     * Function takes session id as parameter.
      */
     protected $key;
     /**
