@@ -188,7 +188,7 @@ class Session extends Component implements \IteratorAggregate, \ArrayAccess, \Co
         }
 
         $handler = false;
-        if ($this->handler) {
+        if ($this->handler !== null) {
             if (!is_object($this->handler)) {
                 $this->handler = Yii::createObject($this->handler);
             }
